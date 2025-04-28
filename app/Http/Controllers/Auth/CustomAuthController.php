@@ -14,11 +14,34 @@ use Illuminate\Support\Str;
 
 class CustomAuthController extends Controller
 {
+    public function selectLanguage(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'language' => 'required|in:english,hindi,malayalam,tamil,other',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        session(['selected_language' => $request->language]);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Language selected successfully.',
+            'data' => [
+                'selected_language' => $request->language,
+            ],
+        ], 200);
+    }
     // 1. Account Selection
     public function accountSelection(Request $request)
     {
         $request->validate([
-            'account_type' => 'required|in:myself,others' // Adjust as per your needs
+            'account_type' => 'required|in:myself,others'
         ]);
 
         // You can save this account type in session or user profile later

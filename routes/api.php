@@ -9,6 +9,8 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return response()->json($request->user());
 });
 
+Route::post('/auth/select-language', [AuthController::class, 'selectLanguage']);
+
 Route::post('/auth/account-selection', [CustomAuthController::class, 'accountSelection']);
 Route::post('/auth/signup', [CustomAuthController::class, 'signup']);
 Route::post('/auth/verify-otp', [CustomAuthController::class, 'verifyOtp']);
