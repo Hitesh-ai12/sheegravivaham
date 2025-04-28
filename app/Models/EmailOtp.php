@@ -2,10 +2,16 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class EmailOtp extends Model
 {
-    protected $fillable = ['email', 'otp', 'expires_at'];
-    public $timestamps = true;
+    use HasFactory;
+
+    protected $fillable = [
+        'email',
+        'otp',
+        'expires_at',
+    ];
 }

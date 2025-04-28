@@ -14,7 +14,9 @@ return new class extends Migration
         Schema::create('users', function (Blueprint $table) {
             $table->id();
             $table->string('name');
+            $table->string('username')->unique(); // 👈 missing tha, signup me use ho raha tha
             $table->string('email')->unique();
+            $table->string('mobile_number')->nullable(); // 👈 mobile_number bhi aapke signup me hai
             $table->string('language')->nullable();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
@@ -43,8 +45,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('users');
-        Schema::dropIfExists('password_reset_tokens');
         Schema::dropIfExists('sessions');
+        Schema::dropIfExists('password_reset_tokens');
+        Schema::dropIfExists('users');
     }
 };
