@@ -11,6 +11,8 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Mail;
 use Carbon\Carbon;
 use Illuminate\Support\Str;
+use App\Models\TempUser;
+
 
 class CustomAuthController extends Controller
 {
@@ -44,56 +46,70 @@ class CustomAuthController extends Controller
                 'account_type' => 'required|string'
             ]);
 
-            // You can save this account type in session or user profile later
+            // Store selected account type in session or proceed to registration.
+            session(['account_type' => $request->account_type]);
+
             return response()->json([
                 'message' => 'Account type selected successfully',
                 'account_type' => $request->account_type
             ], 200);
         }
 
-    // 2. Sign Up
-    public function signup(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'mother_tongue'   => 'required|string|max:100',
-            'username'        => 'required|string|unique:users,username',
-            'email'           => 'required|email|unique:users,email',
-            'password'        => 'required|confirmed|min:6',
-            'mobile_number'   => 'required|numeric|digits_between:8,15',
-        ]);
+        public function signup(Request $request)
+        {
+            // Validate the input
+            $validator = Validator::make($request->all(), [
+                'mother_tongue'   => 'required|string|max:100',
+                'username'        => 'required|string|unique:temp_users,username|unique:users,username',
+                'email'           => 'required|email|unique:temp_users,email|unique:users,email',
+                'password'        => 'required|confirmed|min:6',
+                'mobile_number'   => 'required|numeric|digits_between:8,15',
+                'account_type'    => 'required|string'
+            ]);
 
-        if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 422);
+            // If validation fails, return errors
+            if ($validator->fails()) {
+                return response()->json(['errors' => $validator->errors()], 422);
+            }
+
+            // ✅ Delete any existing temporary user records with the same email or username
+            TempUser::where('email', $request->email)->delete();
+            TempUser::where('username', $request->username)->delete();
+
+            // Create a new temporary user
+            $tempUser = TempUser::create([
+                'username'      => $request->username,
+                'email'         => $request->email,
+                'password'      => Hash::make($request->password),
+                'mobile_number' => $request->mobile_number,
+                'mother_tongue' => $request->mother_tongue,
+                'account_type'  => $request->account_type
+            ]);
+
+            // Generate OTP
+            $otp = rand(100000, 999999);
+
+            // ✅ Clear any old OTP for the same email
+            EmailOtp::where('email', $tempUser->email)->delete();
+
+            // Create new OTP record
+            EmailOtp::create([
+                'email' => $tempUser->email,
+                'otp' => $otp,
+                'expires_at' => now()->addMinutes(10)
+            ]);
+
+            // Send OTP email
+            Mail::raw("Your OTP for Sheegravyvaham Matrimony is: $otp", function ($message) use ($tempUser) {
+                $message->to($tempUser->email)->subject('Email OTP Verification');
+            });
+
+            // Return response indicating the user was registered temporarily and OTP was sent
+            return response()->json([
+                'message' => 'User registered temporarily. OTP sent to your email.',
+                'email' => $tempUser->email
+            ]);
         }
-
-        $user = User::create([
-            'name'             => $request->username,
-            'email'            => $request->email,
-            'username'         => $request->username,
-            'password'         => Hash::make($request->password),
-            'mobile_number'    => $request->mobile_number,
-            'language'         => $request->mother_tongue,
-            'email_verified_at'=> null,
-        ]);
-
-        $otp = rand(100000, 999999);
-
-        EmailOtp::create([
-            'email'      => $user->email,
-            'otp'        => $otp,
-            'expires_at' => Carbon::now()->addMinutes(10),
-        ]);
-
-        Mail::raw("Your OTP for Sheegravyvaham Matrimony is: $otp", function ($message) use ($user) {
-            $message->to($user->email)->subject('Email OTP Verification');
-        });
-
-        return response()->json([
-            'message' => 'User registered successfully. OTP sent to your email.',
-            'user_id' => $user->id,
-            'email'   => $user->email
-        ], 200);
-    }
 
     // 3. Verify OTP
     public function verifyOtp(Request $request)
@@ -103,20 +119,37 @@ class CustomAuthController extends Controller
             'otp' => 'required'
         ]);
 
-        $record = EmailOtp::where('email', $request->email)
-                          ->where('otp', $request->otp)
-                          ->where('expires_at', '>=', Carbon::now())
-                          ->first();
+        $emailOtp = EmailOtp::where('email', $request->email)
+                    ->where('otp', $request->otp)
+                    ->where('expires_at', '>=', now())
+                    ->first();
 
-        if (!$record) {
+        if (!$emailOtp) {
             return response()->json(['message' => 'Invalid or expired OTP.'], 422);
         }
 
-        User::where('email', $request->email)->update([
+        $tempUser = TempUser::where('email', $request->email)->first();
+
+        if (!$tempUser) {
+            return response()->json(['message' => 'Temporary user not found.'], 404);
+        }
+
+        // Move data from temp_users to users
+        $user = User::create([
+            'name' => $tempUser->username,
+            'username' => $tempUser->username,
+            'email' => $tempUser->email,
+            'password' => $tempUser->password,
+            'mobile_number' => $tempUser->mobile_number,
+            'language' => $tempUser->mother_tongue,
+            'account_type' => $tempUser->account_type,
             'email_verified_at' => now()
         ]);
 
-        $user = User::where('email', $request->email)->first();
+        // Clean up temp & OTP record
+        $tempUser->delete();
+        $emailOtp->delete();
+
         $token = $user->createToken('authToken')->plainTextToken;
 
         return response()->json([
@@ -125,6 +158,8 @@ class CustomAuthController extends Controller
             'user' => $user
         ]);
     }
+
+
 
     // 4. Login
     public function login(Request $request)
