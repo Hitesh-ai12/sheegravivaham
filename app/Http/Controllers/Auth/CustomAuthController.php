@@ -37,19 +37,19 @@ class CustomAuthController extends Controller
             ],
         ], 200);
     }
-    // 1. Account Selection
-    public function accountSelection(Request $request)
-    {
-        $request->validate([
-            'account_type' => 'required|string|max:50'
-        ]);
+        // 1. Account Selection
+        public function accountSelection(Request $request)
+        {
+            $request->validate([
+                'account_type' => 'required|string'
+            ]);
 
-        // You can save this account type in session or user profile later
-        return response()->json([
-            'message' => 'Account type selected successfully',
-            'account_type' => $request->account_type
-        ], 200);
-    }
+            // You can save this account type in session or user profile later
+            return response()->json([
+                'message' => 'Account type selected successfully',
+                'account_type' => $request->account_type
+            ], 200);
+        }
 
     // 2. Sign Up
     public function signup(Request $request)
