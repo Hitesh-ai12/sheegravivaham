@@ -41,7 +41,7 @@ class CustomAuthController extends Controller
     public function accountSelection(Request $request)
     {
         $request->validate([
-            'account_type' => 'required|in:myself,others'
+            'account_type' => 'required|string|max:50'
         ]);
 
         // You can save this account type in session or user profile later
