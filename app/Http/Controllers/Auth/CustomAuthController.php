@@ -165,7 +165,7 @@ class CustomAuthController extends Controller
     public function login(Request $request)
     {
         $request->validate([
-            'username' => 'required', // can be username or email
+            'username' => 'required',
             'password' => 'required'
         ]);
 
@@ -173,8 +173,12 @@ class CustomAuthController extends Controller
 
         $user = User::where($loginField, $request->username)->first();
 
-        if (!$user || !Hash::check($request->password, $user->password)) {
-            return response()->json(['message' => 'Invalid credentials.'], 401);
+        if (!$user) {
+            return response()->json(['message' => ucfirst($loginField) . ' not found.'], 404);
+        }
+
+        if (!Hash::check($request->password, $user->password)) {
+            return response()->json(['message' => 'Incorrect password.'], 401);
         }
 
         $token = $user->createToken('authToken')->plainTextToken;
@@ -185,6 +189,7 @@ class CustomAuthController extends Controller
             'user' => $user
         ]);
     }
+
 
 
     // 5. Forgot Password
